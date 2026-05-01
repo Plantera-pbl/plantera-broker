@@ -7,6 +7,7 @@ Start with:
 import logging
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 
 from config import API_HOST, API_PORT
@@ -37,6 +38,14 @@ app = FastAPI(
                 "stores it in a database, and streams it to client software.",
     version="1.0.0",
     lifespan=lifespan,
+)
+
+# Allow requests from the local web app (opened as file:// or any origin)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 app.include_router(router, prefix="/api/v1")

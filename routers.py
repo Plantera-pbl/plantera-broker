@@ -110,6 +110,64 @@ def get_latest_reading(device_id: int, db: Session = Depends(get_db)):
     return reading
 
 
+# ── Push endpoint (used by serial_bridge.py / any device that can POST) ────────
+
+class ReadingPush(BaseModel):
+    light: Optional[float] = None             # raw ADC 0-4095
+    soil_moisture: Optional[float] = None     # raw ADC 0-4095 (key: soil-moisture)
+    temp: Optional[float] = None              # °C
+    ambient_humidity: Optional[float] = None  # % (key: ambient-humidity)
+
+    class Config:
+        # Accept both hyphenated JSON keys and underscore Python keys
+        populate_by_name = True
+
+
+def _adc_to_pct(raw) -> float | None:
+    if raw is None:
+        return None
+    return round(max(0.0, min(100.0, (float(raw) / 4095.0) * 100.0)), 2)
+
+
+@router.post("/devices/{device_id}/push", response_model=ReadingOut, status_code=201)
+async def push_reading(device_id: int, body: dict, db: Session = Depends(get_db)):
+    """
+    Accept a JSON reading pushed directly by a device (e.g. via serial_bridge.py).
+    Expects raw sensor values:
+      {"light": 2048, "soil-moisture": 1024, "temp": 23.5, "ambient-humidity": 61.2}
+    """
+    from datetime import timezone
+    device = db.query(Device).filter(Device.id == device_id).first()
+    if not device:
+        raise HTTPException(status_code=404, detail="Device not found.")
+
+    reading = Reading(
+        device_id=device.id,
+        timestamp=datetime.now(timezone.utc),
+        payload=body,
+        light=_adc_to_pct(body.get("light")),
+        soil_moisture=_adc_to_pct(body.get("soil-moisture")),
+        temp=body.get("temp"),
+        ambient_humidity=body.get("ambient-humidity"),
+    )
+    db.add(reading)
+    db.commit()
+    db.refresh(reading)
+
+    await manager.broadcast({
+        "device": device.name,
+        "timestamp": reading.timestamp.isoformat(),
+        "data": {
+            "light":            reading.light,
+            "soil_moisture":    reading.soil_moisture,
+            "temp":             reading.temp,
+            "ambient_humidity": reading.ambient_humidity,
+        },
+    })
+
+    return reading
+
+
 # ── WebSocket endpoint ─────────────────────────────────────────────────────────
 
 @router.websocket("/ws")
