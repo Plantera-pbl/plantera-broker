@@ -4,7 +4,7 @@ REST API routes for devices and readings, plus the WebSocket endpoint.
 from datetime import datetime
 from typing import Optional, List
 
-from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect, Body
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
@@ -130,7 +130,11 @@ def _adc_to_pct(raw) -> float | None:
 
 
 @router.post("/devices/{device_id}/push", response_model=ReadingOut, status_code=201)
-async def push_reading(device_id: int, body: dict, db: Session = Depends(get_db)):
+async def push_reading(
+    device_id: int,
+    body: dict = Body(...),
+    db: Session = Depends(get_db),
+):
     """
     Accept a JSON reading pushed directly by a device (e.g. via serial_bridge.py).
     Expects raw sensor values:

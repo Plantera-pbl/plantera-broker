@@ -4,6 +4,7 @@ Broker server entry point.
 Start with:
     uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 """
+import asyncio
 import logging
 
 from fastapi import FastAPI
@@ -14,6 +15,7 @@ from config import API_HOST, API_PORT
 from database import init_db
 from scheduler import scheduler, load_all_devices
 from routers import router
+from config import MQTT_ENABLED
 
 logging.basicConfig(
     level=logging.INFO,
@@ -24,12 +26,18 @@ logging.basicConfig(
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # ── Startup ────────────────────────────────────────────────────────────────
-    init_db()                # create tables if they don't exist
-    load_all_devices()       # schedule every device already in the DB
+    init_db()
+    load_all_devices()
     scheduler.start()
+    if MQTT_ENABLED:
+        import mqtt_client
+        mqtt_client.start(asyncio.get_running_loop())
     yield
     # ── Shutdown ───────────────────────────────────────────────────────────────
     scheduler.shutdown(wait=False)
+    if MQTT_ENABLED:
+        import mqtt_client
+        mqtt_client.stop()
 
 
 app = FastAPI(

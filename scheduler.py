@@ -32,6 +32,10 @@ async def fetch_and_store(device_id: int):
         if not device:
             return
 
+        # Push-only devices (e.g. Arduino Uno via serial bridge) have no URL
+        if not device.url or not device.url.startswith("http"):
+            return
+
         try:
             async with httpx.AsyncClient(timeout=MC_TIMEOUT) as client:
                 resp = await client.get(device.url)
