@@ -16,7 +16,7 @@ it to connected clients over WebSocket.
 | `scheduler.py` | Polls HTTP devices on a timer |
 | `routers.py` | All REST endpoints and the WebSocket endpoint |
 | `ws_manager.py` | Broadcasts new readings to WebSocket clients |
-| `mqtt_client.py` | Subscribes to Mosquitto and stores incoming readings |
+| `mqtt_client.py` | Subscribes to an MQTT broker (local Mosquitto or HiveMQ Cloud) and stores incoming readings |
 | `mock_mc.py` | Fake microcontroller that serves random sensor data over HTTP on port 8001 |
 | `mock_mc_mqtt.py` | Fake microcontroller that publishes random sensor data to Mosquitto |
 
@@ -99,11 +99,39 @@ python mock_mc.py
 Make sure `MC_URL=http://localhost:8001/data` is set in `.env` — the broker
 polls it automatically every 5 seconds.
 
-**MQTT mock** (requires Mosquitto + `MQTT_ENABLED=true` in `.env`):  
-Publishes random readings directly to Mosquitto:
+**MQTT mock — local Mosquitto** (`MQTT_ENABLED=true`, `MQTT_PORT=1883` in `.env`):  
+Publishes random readings to a local Mosquitto instance:
 
 ```powershell
 python mock_mc_mqtt.py --device-id 1
+```
+
+**MQTT mock — HiveMQ Cloud** (`MQTT_ENABLED=true`, `MQTT_PORT=8883` in `.env`):  
+Create credentials first: HiveMQ Cloud dashboard → your cluster → **Access Management → Credentials → Add**.
+
+Then register a device and run the mock:
+
+```powershell
+# Register device (one-time)
+Invoke-RestMethod -Method Post -Uri http://localhost:8000/api/v1/devices `
+  -ContentType "application/json" `
+  -Body '{"name":"mock-mqtt","url":"","poll_interval":5}'
+
+# Run mock (replace values with your HiveMQ host and credentials)
+python mock_mc_mqtt.py `
+  --device-id 1 `
+  --mqtt-host YOUR_CLUSTER.s1.eu.hivemq.cloud `
+  --mqtt-port 8883 `
+  --username YOUR_USERNAME `
+  --password YOUR_PASSWORD `
+  --interval 5
+```
+
+TLS is enabled automatically when port is `8883` — no extra setup needed.
+
+Verify data is arriving:
+```powershell
+Invoke-RestMethod http://localhost:8000/api/v1/devices/1/readings/latest
 ```
 
 ---
@@ -120,8 +148,8 @@ python mock_mc_mqtt.py --device-id 1
 | `API_PORT` | `8000` | Port |
 | `MAX_READINGS_PER_DEVICE` | `10000` | Readings kept per device (0 = unlimited) |
 | `MQTT_ENABLED` | `false` | Set to `true` to enable MQTT subscriber |
-| `MQTT_HOST` | `localhost` | Mosquitto host |
-| `MQTT_PORT` | `1883` | Mosquitto port |
+| `MQTT_HOST` | `localhost` | MQTT broker host (use HiveMQ Cloud hostname for cloud) |
+| `MQTT_PORT` | `1883` | `1883` for local Mosquitto, `8883` for HiveMQ Cloud (TLS auto-enabled) |
 | `MQTT_TOPIC_PREFIX` | `iot/devices` | Topic prefix (`{prefix}/{device_id}/data`) |
 | `MQTT_USERNAME` | *(blank)* | MQTT username (leave blank if none) |
 | `MQTT_PASSWORD` | *(blank)* | MQTT password |

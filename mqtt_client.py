@@ -143,6 +143,11 @@ def start(loop: asyncio.AbstractEventLoop):
     if MQTT_USERNAME:
         _client.username_pw_set(MQTT_USERNAME, MQTT_PASSWORD)
 
+    # Use TLS when connecting to cloud brokers (e.g. HiveMQ Cloud port 8883)
+    if MQTT_PORT == 8883:
+        import ssl
+        _client.tls_set(tls_version=ssl.PROTOCOL_TLS_CLIENT)
+
     _client.connect_async(MQTT_HOST, MQTT_PORT, keepalive=60)
 
     # loop_start() spins up a background thread that handles reconnects

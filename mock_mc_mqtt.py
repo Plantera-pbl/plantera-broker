@@ -14,11 +14,15 @@ Run alongside the broker (with MQTT_ENABLED=true in .env):
 import argparse
 import json
 import logging
+import os
 import random
 import sys
 import time
 
+from dotenv import load_dotenv
 import paho.mqtt.client as mqtt
+
+load_dotenv()
 
 log = logging.getLogger("mock_mc_mqtt")
 logging.basicConfig(
@@ -33,11 +37,11 @@ def parse_args():
                         help="Device ID registered in the broker (default: 1)")
     parser.add_argument("--interval",     default=5, type=float,
                         help="Seconds between readings (default: 5)")
-    parser.add_argument("--mqtt-host",    default="localhost", dest="mqtt_host")
-    parser.add_argument("--mqtt-port",    default=1883, type=int, dest="mqtt_port")
-    parser.add_argument("--topic-prefix", default="iot/devices", dest="topic_prefix")
-    parser.add_argument("--username",     default="")
-    parser.add_argument("--password",     default="")
+    parser.add_argument("--mqtt-host",    default=os.getenv("MQTT_HOST", "localhost"), dest="mqtt_host")
+    parser.add_argument("--mqtt-port",    default=int(os.getenv("MQTT_PORT", "1883")), type=int, dest="mqtt_port")
+    parser.add_argument("--topic-prefix", default=os.getenv("MQTT_TOPIC_PREFIX", "iot/devices"), dest="topic_prefix")
+    parser.add_argument("--username",     default=os.getenv("MQTT_USERNAME", ""))
+    parser.add_argument("--password",     default=os.getenv("MQTT_PASSWORD", ""))
     return parser.parse_args()
 
 
@@ -64,10 +68,15 @@ def make_client(args) -> mqtt.Client:
     if args.username:
         client.username_pw_set(args.username, args.password)
 
+    # Use TLS for cloud brokers (e.g. HiveMQ Cloud uses port 8883)
+    if args.mqtt_port == 8883:
+        import ssl
+        client.tls_set(tls_version=ssl.PROTOCOL_TLS_CLIENT)
+
     try:
         client.connect_async(args.mqtt_host, args.mqtt_port, keepalive=60)
     except Exception as e:
-        log.error("Cannot reach Mosquitto at %s:%d: %s", args.mqtt_host, args.mqtt_port, e)
+        log.error("Cannot reach broker at %s:%d: %s", args.mqtt_host, args.mqtt_port, e)
         sys.exit(1)
 
     client.loop_start()
