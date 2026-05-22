@@ -29,6 +29,7 @@ class DeviceOut(BaseModel):
     name: str
     url: str
     poll_interval: int
+    config: Optional[dict] = None
     created_at: datetime
 
     class Config:
@@ -76,6 +77,27 @@ def delete_device(device_id: int, db: Session = Depends(get_db)):
     unschedule_device(device_id)
     db.delete(device)
     db.commit()
+
+
+# ── Device config endpoints ────────────────────────────────────────────────────
+
+@router.get("/devices/{device_id}/config")
+def get_config(device_id: int, db: Session = Depends(get_db)):
+    device = db.query(Device).filter(Device.id == device_id).first()
+    if not device:
+        raise HTTPException(status_code=404, detail="Device not found.")
+    return device.config or {}
+
+
+@router.patch("/devices/{device_id}/config")
+def update_config(device_id: int, body: dict = Body(...), db: Session = Depends(get_db)):
+    device = db.query(Device).filter(Device.id == device_id).first()
+    if not device:
+        raise HTTPException(status_code=404, detail="Device not found.")
+    device.config = body
+    db.commit()
+    db.refresh(device)
+    return device.config
 
 
 # ── Reading endpoints ──────────────────────────────────────────────────────────

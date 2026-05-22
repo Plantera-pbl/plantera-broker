@@ -15,6 +15,7 @@ class Device(Base):
     name = Column(String, unique=True, nullable=False)       # e.g. "esp32-livingroom"
     url = Column(String, nullable=False)                     # polling endpoint
     poll_interval = Column(Integer, default=5)               # seconds
+    config = Column(JSON, nullable=True, default=dict)       # device settings (automation thresholds, state, etc.)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     readings = relationship("Reading", back_populates="device",
