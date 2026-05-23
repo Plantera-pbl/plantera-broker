@@ -8,6 +8,8 @@ from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisco
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
+import mqtt_client
+from config import MQTT_ENABLED, MQTT_TOPIC_PREFIX
 from database import get_db
 from models import Device, Reading
 from scheduler import schedule_device, unschedule_device
@@ -97,6 +99,11 @@ def update_config(device_id: int, body: dict = Body(...), db: Session = Depends(
     device.config = body
     db.commit()
     db.refresh(device)
+
+    if MQTT_ENABLED:
+        topic = f"{MQTT_TOPIC_PREFIX}/{device_id}/config"
+        mqtt_client.publish(topic, device.config, retain=True)
+
     return device.config
 
 

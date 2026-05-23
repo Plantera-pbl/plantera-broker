@@ -160,3 +160,19 @@ def stop():
         _client.loop_stop()
         _client.disconnect()
         log.info("MQTT client stopped")
+
+
+def publish(topic: str, payload: dict, retain: bool = False) -> bool:
+    """Publish a JSON payload to an MQTT topic.
+
+    Returns True if the message was queued, False if the client is not ready.
+    """
+    if not _client:
+        log.warning("MQTT publish skipped — client not started (topic=%s)", topic)
+        return False
+    result = _client.publish(topic, json.dumps(payload), qos=1, retain=retain)
+    if result.rc != mqtt.MQTT_ERR_SUCCESS:
+        log.warning("MQTT publish failed (rc=%d, topic=%s)", result.rc, topic)
+        return False
+    log.info("MQTT published to %s (retain=%s): %s", topic, retain, payload)
+    return True

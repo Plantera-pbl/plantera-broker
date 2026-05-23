@@ -156,13 +156,59 @@ Invoke-RestMethod http://localhost:8000/api/v1/devices/1/readings/latest
 
 ---
 
+## Device configuration
+
+Each device has a `config` JSON field that stores automation settings. The broker exposes two endpoints to read and write it, and publishes the updated config to MQTT (`iot/devices/{id}/config`, retained) so the firmware receives it immediately on connect.
+
+**Get config:**
+```powershell
+Invoke-RestMethod http://localhost:8000/api/v1/devices/1/config
+```
+
+**Update config:**
+```powershell
+Invoke-RestMethod -Method Patch -Uri http://localhost:8000/api/v1/devices/1/config `
+  -ContentType "application/json" `
+  -Body '{
+    "device_state": 1,
+    "watering_cooldown": 60,
+    "watering_duration": 30,
+    "watering_moisture_on": 30.0,
+    "watering_moisture_off": 60.0,
+    "fan_humidity_on": 70.0,
+    "fan_humidity_off": 50.0,
+    "light_intensity_on": 20.0,
+    "light_intensity_off": 60.0,
+    "non_working_windows": ["22:00-06:00"]
+  }'
+```
+
+| Config key | Type | Description |
+|---|---|---|
+| `device_state` | `0` / `1` | Enable or disable the device |
+| `watering_cooldown` | minutes | Minimum time between watering cycles |
+| `watering_duration` | seconds | How long the pump runs per cycle |
+| `watering_moisture_on` | % | Soil moisture below which watering starts |
+| `watering_moisture_off` | % | Soil moisture above which watering stops |
+| `fan_humidity_on` | % | Ambient humidity above which the fan turns on |
+| `fan_humidity_off` | % | Ambient humidity below which the fan turns off |
+| `light_intensity_on` | % | Light level below which grow light turns on |
+| `light_intensity_off` | % | Light level above which grow light turns off |
+| `non_working_windows` | list of `"HH:MM-HH:MM"` | Time windows (GMT+3) when automation is paused |
+
+The config is also returned in the `GET /api/v1/devices` response under the `config` field.
+
+---
+
 ## REST API
 
 | Method | Endpoint | Description |
 |---|---|---|
-| `GET` | `/api/v1/devices` | List all devices |
+| `GET` | `/api/v1/devices` | List all devices (includes `config`) |
 | `POST` | `/api/v1/devices` | Register a device |
 | `DELETE` | `/api/v1/devices/{id}` | Remove a device |
+| `GET` | `/api/v1/devices/{id}/config` | Get device automation config |
+| `PATCH` | `/api/v1/devices/{id}/config` | Update device automation config |
 | `GET` | `/api/v1/devices/{id}/readings` | Reading history (`?limit=100&since=<iso>`) |
 | `GET` | `/api/v1/devices/{id}/readings/latest` | Most recent reading |
 | `POST` | `/api/v1/devices/{id}/push` | Push a reading directly |
